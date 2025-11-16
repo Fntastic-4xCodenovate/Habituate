@@ -27,6 +27,20 @@ export default function ProfilePage() {
       loadUserStats();
     }
   }, [user?.id]);
+    maxXp: 100,
+    streak: 0,
+    totalBattles: 0,
+    winRate: 0,
+    badges: [] as any[],
+  });
+  const [clanInfo, setClanInfo] = useState<any>(null);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadUserStats();
+    }
+  }, [user?.id]);
 
   const loadUserStats = async () => {
     try {
