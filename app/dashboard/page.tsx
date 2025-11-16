@@ -99,12 +99,12 @@ export default function DashboardPage() {
       
       if (error) throw error;
       
-      // Update streak in habits table and locally
+      // Update streak in habits table
       if (habit) {
         const newStreak = habit.streak + 1;
         const newBestStreak = Math.max(newStreak, habit.best_streak);
         
-        const { error: updateError } = await supabase
+        await supabase
           .from('habits')
           .update({
             streak: newStreak,
@@ -112,15 +112,10 @@ export default function DashboardPage() {
             last_completed_date: new Date().toISOString().split('T')[0],
           })
           .eq('id', habitId);
-        
-        if (!updateError) {
-          setHabits(habits.map(h => 
-            h.id === habitId 
-              ? { ...h, streak: newStreak, best_streak: newBestStreak }
-              : h
-          ));
-        }
       }
+      
+      // Reload data from database to show updated state
+      await loadHabits();
     } catch (error) {
       console.error('Error completing habit:', error);
     }
