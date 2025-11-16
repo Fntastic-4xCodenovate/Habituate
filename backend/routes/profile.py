@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from services.database import Database
-from models.user import UserProfile, UserStats
+from models.user import UserProfile, UserStats, get_xp_for_next_level
 
 router = APIRouter()
 db = Database()
@@ -54,3 +54,15 @@ async def update_profile(user_id: str, updates: dict):
     
     updated = await db.update_user(user_id, updates)
     return updated
+
+@router.get("/{user_id}/level-progress")
+async def get_level_progress(user_id: str):
+    """Get user's current level and progress to next level"""
+    user = await db.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    current_xp = user.get('xp', 0)
+    progress_info = get_xp_for_next_level(current_xp)
+    
+    return progress_info

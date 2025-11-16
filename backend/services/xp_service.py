@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from models.user import calculate_level_from_xp, calculate_xp_for_level, XP_CONFIG, EXTRA_LIFE_STREAK_THRESHOLD
+from models.user import calculate_level_from_xp, calculate_xp_for_level, XP_CONFIG, EXTRA_LIFE_STREAK_THRESHOLD, get_xp_for_next_level
 from services.badge_service import BadgeService
 from services.database import Database
 import posthog
@@ -51,13 +51,17 @@ class XPService:
         if user.get('clan_id'):
             await self._contribute_clan_xp(user_id, user['clan_id'], xp_amount)
         
+        # Get level progress info
+        level_progress = get_xp_for_next_level(new_xp)
+        
         return {
             'xp_awarded': xp_amount,
             'total_xp': new_xp,
             'old_level': old_level,
             'new_level': new_level,
             'level_ups': level_ups,
-            'reason': reason
+            'reason': reason,
+            'level_progress': level_progress
         }
     
     async def _handle_level_up(self, user_id: str, new_level: int):

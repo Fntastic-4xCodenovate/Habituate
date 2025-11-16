@@ -168,16 +168,33 @@ export const habitsAPI = {
 
 // Profile API
 export const profileAPI = {
+  getProfile: async (userId: string) => {
+    return fetchAPI<User>(`/profile/${userId}`);
+  },
+
   getStats: async (userId: string) => {
     return fetchAPI<{
-      user: User;
       total_habits: number;
-      active_habits: number;
-      completed_today: number;
       total_completions: number;
-      xp_to_next_level: number;
+      current_streak: number;
+      longest_streak: number;
+      total_xp: number;
+      level: number;
       badges_earned: number;
+      clan_xp_contribution: number;
     }>(`/profile/${userId}/stats`);
+  },
+
+  getLevelProgress: async (userId: string) => {
+    return fetchAPI<{
+      current_level: number;
+      next_level: number;
+      current_xp: number;
+      xp_into_level: number;
+      xp_needed_for_next: number;
+      xp_required_for_level: number;
+      progress_percentage: number;
+    }>(`/profile/${userId}/level-progress`);
   },
 
   getActivity: async (userId: string, days: number = 30) => {
