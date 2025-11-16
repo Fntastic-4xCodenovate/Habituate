@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/shaikmohammedomar/XCodenovate/asdasdasdasdasdasdasds/backend/.venv"
+set -gx VIRTUAL_ENV "/Users/shaikmohammedomar/XCodenovate/Habituate/backend/.venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH
