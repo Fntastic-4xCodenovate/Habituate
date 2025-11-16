@@ -223,12 +223,32 @@ export const badgesAPI = {
 
 // Leaderboard API
 export const leaderboardAPI = {
+  // getUsers: async (limit: number = 10) => {
+  //   const response = await fetchAPI<{
+  //     leaderboard: (User & { rank: number })[];
+  //     total_users: number;
+  //   }>(`/leaderboard/users?limit=${limit}`);
+  //   return response.leaderboard;
+  // },
   getUsers: async (limit: number = 10) => {
-    return fetchAPI<(User & { rank: number })[]>(`/leaderboard/users?limit=${limit}`);
-  },
+  const response = await fetchAPI<{
+    leaderboard: (User & { rank: number })[];
+    total_users: number;
+  }>(`/leaderboard/users?limit=${limit}`);
+
+  // Sort ASCENDING by XP
+  const sorted = response.leaderboard.sort((a, b) => b.xp - a.xp);
+
+  // Reassign ranks based on new order
+  sorted.forEach((u, i) => (u.rank = i + 1));
+
+  return sorted;
+},
+
 
   getClans: async (limit: number = 10) => {
-    return fetchAPI<{
+  const response = await fetchAPI<{
+    leaderboard: {
       id: string;
       name: string;
       description: string;
@@ -236,8 +256,20 @@ export const leaderboardAPI = {
       level: number;
       member_count: number;
       rank: number;
-    }[]>(`/leaderboard/clans?limit=${limit}`);
-  },
+      top_contributors?: any[];
+    }[];
+    total_clans: number;
+  }>(`/leaderboard/clans?limit=${limit}`);
+
+  // Sort clans by total_xp (High → Low)
+  const sorted = response.leaderboard.sort((a, b) => b.total_xp - a.total_xp);
+
+  // Reassign ranks
+  sorted.forEach((clan, i) => (clan.rank = i + 1));
+
+  return sorted;
+},
+
 };
 
 // Quests API
