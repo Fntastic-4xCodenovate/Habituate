@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useClerk } from '@clerk/nextjs';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
 
 export default function ProfilePage() {
   const { user } = useUser();
+  const { signOut } = useClerk();
   const [profileHovered, setProfileHovered] = useState(false);
   const [stats, setStats] = useState({
     level: 1,
@@ -124,7 +125,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Stats Footer */}
-                <div className="pt-4 border-t-4 border-purple-500">
+                <div className="pt-4 border-t-4 border-purple-500 space-y-4">
                   <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
                     <div className="px-2 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
                       <div className="text-purple-400 font-bold text-lg">{stats.totalBattles}</div>
@@ -139,6 +140,14 @@ export default function ProfilePage() {
                       <div className="text-gray-400 text-xs">LEVEL</div>
                     </div>
                   </div>
+                  
+                  {/* Logout Button */}
+                  <button
+                    onClick={() => signOut()}
+                    className="w-full py-3 bg-red-600/20 border-2 border-red-500/50 rounded-lg text-red-400 font-mono text-sm font-bold tracking-widest hover:bg-red-600/30 hover:border-red-500/80 transition-all duration-300"
+                  >
+                     LOGOUT SYSTEM 
+                  </button>
                 </div>
               </div>
             </div>
