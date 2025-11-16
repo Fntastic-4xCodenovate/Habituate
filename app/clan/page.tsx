@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
 import Navbar from '@/components/Navbar';
 import ClanChat from '@/components/ClanChat';
+import { supabase } from '@/lib/supabase';
 import { 
   Users, 
   MessageSquare, 
@@ -21,97 +22,227 @@ import {
   Send,
   X,
   Check,
-  Edit
+  Edit,
+  ChevronDown
 } from 'lucide-react';
 
-// Mock data - replace with real data from your backend
-const mockClanData = {
-  name: "Shadow Warriors",
-  level: 15,
-  xp: 45000,
-  xpToNextLevel: 50000,
-  motto: "Together we rise, divided we fall",
-  color: "#8b5cf6",
-  banner: "/media/clan-banner.jpg",
-  image: "/avatars/clan-logo.png",
-  members: 24,
-  maxMembers: 50,
-  isLeader: true, // Set based on user role
-  rules: [
-    "Be respectful to all members",
-    "Complete daily quests",
-    "Help others grow",
-    "Stay active"
-  ]
-};
+interface ClanMember {
+  id: string;
+  user_id: string;
+  clan_id: string;
+  role: 'Leader' | 'Moderator' | 'Member';
+  xp_contributed: number;
+  joined_at: string;
+  user_profiles: {
+    clerk_user_id: string;
+    username: string;
+    level: number;
+    xp: number;
+    current_streak: number;
+  };
+}
 
-const mockMembers = [
-  { id: 1, name: "DragonSlayer", level: 25, xp: 12000, role: "Leader", avatar: "/avatars/1.png", status: "online" },
-  { id: 2, name: "MysticMage", level: 22, xp: 9500, role: "Moderator", avatar: "/avatars/2.png", status: "online" },
-  { id: 3, name: "StealthNinja", level: 20, xp: 8200, role: "Member", avatar: "/avatars/3.png", status: "offline" },
-  { id: 4, name: "PhoenixRider", level: 18, xp: 7100, role: "Member", avatar: "/avatars/4.png", status: "online" },
-  { id: 5, name: "IronKnight", level: 16, xp: 6300, role: "Member", avatar: "/avatars/5.png", status: "offline" },
-];
-
-const mockQuests = [
-  { id: 1, title: "Team Spirit", description: "Have 10 members complete habits", progress: 7, goal: 10, reward: 500 },
-  { id: 2, title: "Streak Masters", description: "Maintain 30-day clan streak", progress: 18, goal: 30, reward: 1000 },
-  { id: 3, title: "XP Grinders", description: "Earn 5000 collective XP", progress: 3200, goal: 5000, reward: 750 },
-];
-
-const mockMessages = [
-  { id: 1, user: "DragonSlayer", message: "Great work everyone! We're crushing it today!", time: "2m ago", avatar: "/avatars/1.png" },
-  { id: 2, user: "MysticMage", message: "Who wants to team up for the daily quest?", time: "15m ago", avatar: "/avatars/2.png" },
-  { id: 3, user: "StealthNinja", message: "Just hit level 20! 🎉", time: "1h ago", avatar: "/avatars/3.png" },
-];
-
-const mockPendingMembers = [
-  { id: 1, name: "NewWarrior", level: 12, avatar: "/avatars/pending1.png" },
-  { id: 2, name: "QuestSeeker", level: 15, avatar: "/avatars/pending2.png" },
-];
+interface Clan {
+  id: string;
+  name: string;
+  description: string;
+  avatar_url: string;
+  total_xp: number;
+  level: number;
+  max_members: number;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function ClanPage() {
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
   const [showSettings, setShowSettings] = useState(false);
-  const [message, setMessage] = useState('');
-  const [clanData, setClanData] = useState(mockClanData);
+  const [loading, setLoading] = useState(true);
+  const [clan, setClan] = useState<Clan | null>(null);
+  const [members, setMembers] = useState<ClanMember[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userMembership, setUserMembership] = useState<ClanMember | null>(null);
+  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   
   // Settings states
-  const [editName, setEditName] = useState(clanData.name);
-  const [editMotto, setEditMotto] = useState(clanData.motto);
-  const [editColor, setEditColor] = useState(clanData.color);
-  const [editRules, setEditRules] = useState(clanData.rules.join('\n'));
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editMaxMembers, setEditMaxMembers] = useState(50);
+  const [editIsPublic, setEditIsPublic] = useState(true);
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      // TODO: Send message to backend
-      console.log('Sending message:', message);
-      setMessage('');
+  useEffect(() => {
+    if (user?.id) {
+      loadClanData();
+    }
+  }, [user?.id]);
+
+  const loadClanData = async () => {
+    try {
+      if (!user?.id) return;
+      
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('clerk_user_id', user.id)
+        .single();
+      
+      if (!profile) return;
+      setUserProfile(profile);
+      
+      // Get user's clan membership
+      const { data: membership } = await supabase
+        .from('clan_members')
+        .select(`
+          *,
+          clans (*)
+        `)
+        .eq('user_id', profile.id)
+        .single();
+      
+      if (!membership?.clans) {
+        setLoading(false);
+        return;
+      }
+      
+      setUserMembership(membership);
+      setClan(membership.clans);
+      setEditName(membership.clans.name);
+      setEditDescription(membership.clans.description || '');
+      setEditMaxMembers(membership.clans.max_members);
+      setEditIsPublic(membership.clans.is_public);
+      
+      // Load all clan members with their profiles
+      const { data: clanMembers } = await supabase
+        .from('clan_members')
+        .select(`
+          *,
+          user_profiles (
+            clerk_user_id,
+            username,
+            level,
+            xp,
+            current_streak
+          )
+        `)
+        .eq('clan_id', membership.clans.id)
+        .order('xp_contributed', { ascending: false });
+      
+      if (clanMembers) {
+        setMembers(clanMembers);
+      }
+      
+    } catch (error) {
+      console.error('Error loading clan data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAcceptMember = (memberId: number) => {
-    // TODO: Accept member via backend
-    console.log('Accepting member:', memberId);
+  const handleTransferLeadership = async (memberId: string) => {
+    if (!clan || !userMembership || userMembership.role !== 'Leader') return;
+    
+    try {
+      // Update current leader to member
+      await supabase
+        .from('clan_members')
+        .update({ role: 'Member' })
+        .eq('id', userMembership.id);
+      
+      // Update new leader
+      await supabase
+        .from('clan_members')
+        .update({ role: 'Leader' })
+        .eq('id', memberId);
+      
+      // Reload data
+      await loadClanData();
+    } catch (error) {
+      console.error('Error transferring leadership:', error);
+    }
   };
 
-  const handleRejectMember = (memberId: number) => {
-    // TODO: Reject member via backend
-    console.log('Rejecting member:', memberId);
+  const handlePromoteMember = async (memberId: string, newRole: 'Moderator' | 'Member') => {
+    if (!userMembership || userMembership.role !== 'Leader') return;
+    
+    try {
+      await supabase
+        .from('clan_members')
+        .update({ role: newRole })
+        .eq('id', memberId);
+      
+      await loadClanData();
+    } catch (error) {
+      console.error('Error updating member role:', error);
+    }
   };
 
-  const handleSaveSettings = () => {
-    // TODO: Save settings to backend
-    setClanData({
-      ...clanData,
-      name: editName,
-      motto: editMotto,
-      color: editColor,
-      rules: editRules.split('\n').filter(r => r.trim())
-    });
-    setShowSettings(false);
+  const handleKickMember = async (memberId: string) => {
+    if (!userMembership || userMembership.role !== 'Leader') return;
+    
+    try {
+      await supabase
+        .from('clan_members')
+        .delete()
+        .eq('id', memberId);
+      
+      await loadClanData();
+    } catch (error) {
+      console.error('Error kicking member:', error);
+    }
   };
+
+  const handleSaveSettings = async () => {
+    if (!clan || !userMembership || userMembership.role !== 'Leader') return;
+    
+    try {
+      await supabase
+        .from('clans')
+        .update({
+          name: editName,
+          description: editDescription,
+          max_members: editMaxMembers,
+          is_public: editIsPublic
+        })
+        .eq('id', clan.id);
+      
+      await loadClanData();
+      setShowSettings(false);
+    } catch (error) {
+      console.error('Error updating clan settings:', error);
+    }
+  };
+
+  const isLeader = userMembership?.role === 'Leader';
+  const isModerator = userMembership?.role === 'Moderator';
+  const canManage = isLeader || isModerator;
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>
+      </>
+    );
+  }
+
+  if (!clan) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">You're not in a clan</h1>
+            <p className="text-gray-400">Join a clan to start building community!</p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -125,25 +256,26 @@ export default function ClanPage() {
             className="relative mb-8 rounded-lg overflow-hidden"
           >
             {/* Banner */}
-            <div 
-              className="h-48 bg-gradient-to-r from-purple-900 to-blue-900 relative"
-              style={{ backgroundColor: clanData.color }}
-            >
+            <div className="h-48 bg-gradient-to-r from-purple-900 to-blue-900 relative">
               <div className="absolute inset-0 bg-black/40" />
               <div className="absolute bottom-4 left-4 flex items-end gap-4">
                 {/* Clan Image */}
                 <div className="w-24 h-24 rounded-lg border-4 border-white bg-purple-600 flex items-center justify-center text-4xl font-bold">
-                  {clanData.name[0]}
+                  {clan.avatar_url ? (
+                    <img src={clan.avatar_url} alt={clan.name} className="w-full h-full rounded-lg object-cover" />
+                  ) : (
+                    clan.name[0]?.toUpperCase()
+                  )}
                 </div>
                 <div className="mb-2">
                   <h1 className="text-4xl font-bold text-white flex items-center gap-2">
-                    {clanData.name}
-                    {clanData.isLeader && <Crown className="text-yellow-400" size={32} />}
+                    {clan.name}
+                    {isLeader && <Crown className="text-yellow-400" size={32} />}
                   </h1>
-                  <p className="text-gray-300 italic">&ldquo;{clanData.motto}&rdquo;</p>
+                  <p className="text-gray-300 italic">&ldquo;{clan.description || 'Building better habits together'}&rdquo;</p>
                 </div>
               </div>
-              {clanData.isLeader && (
+              {isLeader && (
                 <button
                   onClick={() => setShowSettings(!showSettings)}
                   className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
@@ -157,32 +289,32 @@ export default function ClanPage() {
             <div className="bg-black/60 backdrop-blur-sm border-t border-purple-500/30 p-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">Level {clanData.level}</div>
+                  <div className="text-2xl font-bold text-purple-400">Level {clan.level}</div>
                   <div className="text-sm text-gray-400">Clan Level</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-400">{clanData.members}/{clanData.maxMembers}</div>
+                  <div className="text-2xl font-bold text-blue-400">{members.length}/{clan.max_members}</div>
                   <div className="text-sm text-gray-400">Members</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-400">{clanData.xp.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-green-400">{clan.total_xp.toLocaleString()}</div>
                   <div className="text-sm text-gray-400">Total XP</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-400">{mockQuests.length}</div>
-                  <div className="text-sm text-gray-400">Active Quests</div>
+                  <div className="text-2xl font-bold text-yellow-400">{clan.is_public ? 'Public' : 'Private'}</div>
+                  <div className="text-sm text-gray-400">Type</div>
                 </div>
               </div>
               {/* XP Progress Bar */}
               <div className="mt-4">
                 <div className="flex justify-between text-sm text-gray-400 mb-1">
-                  <span>Progress to Level {clanData.level + 1}</span>
-                  <span>{clanData.xp}/{clanData.xpToNextLevel} XP</span>
+                  <span>Progress to Level {clan.level + 1}</span>
+                  <span>{clan.total_xp}/{(clan.level + 1) * 10000} XP</span>
                 </div>
                 <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-                    style={{ width: `${(clanData.xp / clanData.xpToNextLevel) * 100}%` }}
+                    style={{ width: `${(clan.total_xp / ((clan.level + 1) * 10000)) * 100}%` }}
                   />
                 </div>
               </div>
@@ -195,8 +327,7 @@ export default function ClanPage() {
               { id: 'overview', label: 'Overview', icon: Target },
               { id: 'members', label: 'Members', icon: Users },
               { id: 'chat', label: 'Chat', icon: MessageSquare },
-              { id: 'quests', label: 'Quests', icon: Award },
-              ...(clanData.isLeader ? [{ id: 'manage', label: 'Manage', icon: Shield }] : [])
+              ...(canManage ? [{ id: 'manage', label: 'Manage', icon: Shield }] : [])
             ].map(tab => (
               <button
                 key={tab.id}
@@ -222,43 +353,46 @@ export default function ClanPage() {
                   animate={{ opacity: 1 }}
                   className="space-y-6"
                 >
-                  {/* Clan Rules */}
+                  {/* Clan Description */}
                   <div className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6">
                     <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                       <Shield className="text-purple-400" />
-                      Clan Rules
+                      About This Clan
                     </h2>
-                    <ul className="space-y-2">
-                      {clanData.rules.map((rule, index) => (
-                        <li key={index} className="flex items-start gap-2 text-gray-300">
-                          <span className="text-purple-400 font-bold">{index + 1}.</span>
-                          {rule}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-gray-300">
+                      {clan.description || 'A dedicated group of individuals working together to build better habits and achieve personal growth.'}
+                    </p>
+                    <div className="mt-4 flex items-center gap-4 text-sm text-gray-400">
+                      <span>Created: {new Date(clan.created_at).toLocaleDateString()}</span>
+                      <span>•</span>
+                      <span>{clan.is_public ? 'Public Clan' : 'Private Clan'}</span>
+                    </div>
                   </div>
 
                   {/* Top Contributors */}
                   <div className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6">
                     <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                       <TrendingUp className="text-green-400" />
-                      Top Contributors This Week
+                      Top Contributors
                     </h2>
                     <div className="space-y-3">
-                      {mockMembers.slice(0, 5).map((member, index) => (
+                      {members.slice(0, 5).map((member, index) => (
                         <div key={member.id} className="flex items-center gap-3 p-3 bg-black/40 rounded-lg">
                           <div className={`text-2xl font-bold ${index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-orange-600' : 'text-gray-500'}`}>
                             #{index + 1}
                           </div>
                           <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
-                            {member.name[0]}
+                            {member.user_profiles?.username?.[0]?.toUpperCase() || 'U'}
                           </div>
                           <div className="flex-1">
-                            <div className="font-semibold">{member.name}</div>
-                            <div className="text-sm text-gray-400">Level {member.level}</div>
+                            <div className="font-semibold flex items-center gap-1">
+                              {member.user_profiles?.username || 'Unknown User'}
+                              {member.role === 'Leader' && <Crown className="text-yellow-400" size={14} />}
+                            </div>
+                            <div className="text-sm text-gray-400">Level {member.user_profiles?.level || 1}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-bold text-purple-400">{member.xp} XP</div>
+                            <div className="text-lg font-bold text-purple-400">{member.xp_contributed} XP</div>
                           </div>
                         </div>
                       ))}
@@ -275,28 +409,57 @@ export default function ClanPage() {
                 >
                   <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                     <Users className="text-blue-400" />
-                    Clan Members ({mockMembers.length}/{clanData.maxMembers})
+                    Clan Members ({members.length}/{clan.max_members})
                   </h2>
                   <div className="space-y-3">
-                    {mockMembers.map(member => (
+                    {members.map(member => (
                       <div key={member.id} className="flex items-center gap-3 p-4 bg-black/40 rounded-lg hover:bg-black/60 transition-colors">
                         <div className="relative">
                           <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                            {member.name[0]}
+                            {member.user_profiles?.username?.[0]?.toUpperCase() || 'U'}
                           </div>
-                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-900 ${member.status === 'online' ? 'bg-green-500' : 'bg-gray-500'}`} />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-lg">{member.name}</span>
+                            <span className="font-semibold text-lg">{member.user_profiles?.username || 'Unknown User'}</span>
                             {member.role === 'Leader' && <Crown className="text-yellow-400" size={16} />}
                             {member.role === 'Moderator' && <Shield className="text-blue-400" size={16} />}
                           </div>
-                          <div className="text-sm text-gray-400">{member.role} • Level {member.level}</div>
+                          <div className="text-sm text-gray-400">{member.role} • Level {member.user_profiles?.level || 1}</div>
+                          <div className="text-xs text-gray-500">Contributed: {member.xp_contributed} XP</div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold text-purple-400">{member.xp} XP</div>
-                          <div className="text-xs text-gray-500">{member.status}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <div className="font-bold text-purple-400">{member.user_profiles?.xp || 0} XP</div>
+                            <div className="text-xs text-gray-500">Streak: {member.user_profiles?.current_streak || 0}</div>
+                          </div>
+                          {isLeader && member.role !== 'Leader' && (
+                            <div className="relative group">
+                              <button className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
+                                <ChevronDown size={16} />
+                              </button>
+                              <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-purple-500/30 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 min-w-[120px]">
+                                <button
+                                  onClick={() => handlePromoteMember(member.id, member.role === 'Moderator' ? 'Member' : 'Moderator')}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-700 first:rounded-t-lg"
+                                >
+                                  {member.role === 'Moderator' ? 'Demote' : 'Promote'}
+                                </button>
+                                <button
+                                  onClick={() => handleTransferLeadership(member.id)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-700 text-yellow-400"
+                                >
+                                  Transfer Leadership
+                                </button>
+                                <button
+                                  onClick={() => handleKickMember(member.id)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-700 text-red-400 rounded-b-lg"
+                                >
+                                  Kick Member
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -311,167 +474,122 @@ export default function ClanPage() {
                   className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6 h-[600px]"
                 >
                   <ClanChat
-                    clanId={mockClanData.name.toLowerCase().replace(/\s+/g, '-')}
+                    clanId={clan.id}
                     userId={user?.id || 'guest'}
                     userName={user?.fullName || user?.username || 'Guest'}
                   />
                 </motion.div>
               )}
 
-              {activeTab === 'quests' && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6"
-                >
-                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <Award className="text-yellow-400" />
-                    Daily Clan Quests
-                  </h2>
-                  <div className="space-y-4">
-                    {mockQuests.map(quest => (
-                      <div key={quest.id} className="bg-black/40 rounded-lg p-4 border border-purple-500/20">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="text-xl font-bold text-purple-400">{quest.title}</h3>
-                            <p className="text-gray-400">{quest.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-yellow-400 font-bold">+{quest.reward} XP</div>
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <div className="flex justify-between text-sm text-gray-400 mb-1">
-                            <span>Progress</span>
-                            <span>{quest.progress}/{quest.goal}</span>
-                          </div>
-                          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-gradient-to-r from-green-500 to-blue-500"
-                              style={{ width: `${(quest.progress / quest.goal) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {activeTab === 'manage' && clanData.isLeader && (
+              {activeTab === 'manage' && canManage && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="space-y-6"
                 >
-                  {/* Pending Members */}
-                  {mockPendingMembers.length > 0 && (
+                  {/* Clan Settings - Only for Leaders */}
+                  {isLeader && (
                     <div className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6">
                       <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                        <UserPlus className="text-orange-400" />
-                        Pending Members ({mockPendingMembers.length})
+                        <Settings className="text-blue-400" />
+                        Clan Settings
                       </h2>
-                      <div className="space-y-3">
-                        {mockPendingMembers.map(member => (
-                          <div key={member.id} className="flex items-center gap-3 p-3 bg-black/40 rounded-lg">
-                            <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
-                              {member.name[0]}
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-semibold">{member.name}</div>
-                              <div className="text-sm text-gray-400">Level {member.level}</div>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleAcceptMember(member.id)}
-                                className="p-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                              >
-                                <Check size={20} />
-                              </button>
-                              <button
-                                onClick={() => handleRejectMember(member.id)}
-                                className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                              >
-                                <X size={20} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold mb-2">Clan Name</label>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold mb-2">Clan Description</label>
+                          <textarea
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            rows={3}
+                            className="w-full px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
+                            placeholder="Describe your clan's mission and goals..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold mb-2">Max Members</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={editMaxMembers}
+                            onChange={(e) => setEditMaxMembers(parseInt(e.target.value) || 50)}
+                            className="w-full px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={editIsPublic}
+                              onChange={(e) => setEditIsPublic(e.target.checked)}
+                              className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
+                            />
+                            <span className="text-sm font-semibold">Public Clan (anyone can join)</span>
+                          </label>
+                        </div>
+                        <button
+                          onClick={handleSaveSettings}
+                          className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors"
+                        >
+                          Save Changes
+                        </button>
                       </div>
                     </div>
                   )}
 
-                  {/* Clan Settings */}
+                  {/* Member Management */}
                   <div className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6">
                     <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                      <Settings className="text-blue-400" />
-                      Clan Settings
+                      <Users className="text-blue-400" />
+                      Member Management
                     </h2>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Clan Name</label>
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="w-full px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Clan Motto</label>
-                        <input
-                          type="text"
-                          value={editMotto}
-                          onChange={(e) => setEditMotto(e.target.value)}
-                          className="w-full px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Clan Color Theme</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={editColor}
-                            onChange={(e) => setEditColor(e.target.value)}
-                            className="w-16 h-10 rounded cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            value={editColor}
-                            onChange={(e) => setEditColor(e.target.value)}
-                            className="flex-1 px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
-                          />
+                    <div className="space-y-3">
+                      {members.map(member => (
+                        <div key={member.id} className="flex items-center gap-3 p-3 bg-black/40 rounded-lg">
+                          <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
+                            {member.user_profiles?.username?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold flex items-center gap-2">
+                              {member.user_profiles?.username || 'Unknown User'}
+                              {member.role === 'Leader' && <Crown className="text-yellow-400" size={16} />}
+                              {member.role === 'Moderator' && <Shield className="text-blue-400" size={16} />}
+                            </div>
+                            <div className="text-sm text-gray-400">{member.role} • Joined: {new Date(member.joined_at).toLocaleDateString()}</div>
+                          </div>
+                          {isLeader && member.role !== 'Leader' && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handlePromoteMember(member.id, member.role === 'Moderator' ? 'Member' : 'Moderator')}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors"
+                              >
+                                {member.role === 'Moderator' ? 'Demote' : 'Promote'}
+                              </button>
+                              <button
+                                onClick={() => handleTransferLeadership(member.id)}
+                                className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm transition-colors"
+                              >
+                                Transfer Leadership
+                              </button>
+                              <button
+                                onClick={() => handleKickMember(member.id)}
+                                className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+                              >
+                                Kick
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Clan Rules (one per line)</label>
-                        <textarea
-                          value={editRules}
-                          onChange={(e) => setEditRules(e.target.value)}
-                          rows={6}
-                          className="w-full px-4 py-2 bg-black/40 border border-purple-500/30 rounded-lg focus:outline-none focus:border-purple-500 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Upload Clan Banner</label>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors">
-                          <Upload size={20} />
-                          Upload Banner
-                        </button>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Upload Clan Image</label>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors">
-                          <Upload size={20} />
-                          Upload Image
-                        </button>
-                      </div>
-                      <button
-                        onClick={handleSaveSettings}
-                        className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors"
-                      >
-                        Save Changes
-                      </button>
+                      ))}
                     </div>
                   </div>
                 </motion.div>
@@ -485,48 +603,43 @@ export default function ClanPage() {
                 <h3 className="font-bold mb-3">Quick Stats</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Active Today</span>
-                    <span className="font-bold text-green-400">12/24</span>
+                    <span className="text-gray-400">Total Members</span>
+                    <span className="font-bold text-green-400">{members.length}/{clan.max_members}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Quests Completed</span>
-                    <span className="font-bold text-blue-400">156</span>
+                    <span className="text-gray-400">Clan Level</span>
+                    <span className="font-bold text-blue-400">{clan.level}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Clan Streak</span>
-                    <span className="font-bold text-orange-400">18 days</span>
+                    <span className="text-gray-400">Total XP</span>
+                    <span className="font-bold text-purple-400">{clan.total_xp.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Global Rank</span>
-                    <span className="font-bold text-purple-400">#47</span>
+                    <span className="text-gray-400">Your Role</span>
+                    <span className={`font-bold ${userMembership?.role === 'Leader' ? 'text-yellow-400' : userMembership?.role === 'Moderator' ? 'text-blue-400' : 'text-gray-400'}`}>
+                      {userMembership?.role || 'Member'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Recent Activity */}
+              {/* Your Contribution */}
               <div className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-4">
-                <h3 className="font-bold mb-3">Recent Activity</h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-start gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5" />
-                    <div>
-                      <p className="text-gray-300"><span className="font-semibold">DragonSlayer</span> completed a quest</p>
-                      <p className="text-xs text-gray-500">5m ago</p>
-                    </div>
+                <h3 className="font-bold mb-3">Your Contribution</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">XP Contributed</span>
+                    <span className="font-bold text-purple-400">{userMembership?.xp_contributed || 0}</span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5" />
-                    <div>
-                      <p className="text-gray-300"><span className="font-semibold">MysticMage</span> leveled up to 23</p>
-                      <p className="text-xs text-gray-500">1h ago</p>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Member Since</span>
+                    <span className="font-bold text-gray-400">
+                      {userMembership ? new Date(userMembership.joined_at).toLocaleDateString() : 'N/A'}
+                    </span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 mt-1.5" />
-                    <div>
-                      <p className="text-gray-300">Clan reached Level 15!</p>
-                      <p className="text-xs text-gray-500">3h ago</p>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Your Level</span>
+                    <span className="font-bold text-green-400">{userProfile?.level || 1}</span>
                   </div>
                 </div>
               </div>

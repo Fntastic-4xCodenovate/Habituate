@@ -19,6 +19,8 @@ export default function ProfilePage() {
     winRate: 0,
     badges: [] as any[],
   });
+  const [clanInfo, setClanInfo] = useState<any>(null);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -40,12 +42,58 @@ export default function ProfilePage() {
         setStats({
           level: profile.level || 1,
           xp: profile.xp || 0,
-          maxXp: profile.level * 100,
+          maxXp: (profile.level || 1) * 100,
           streak: profile.current_streak || 0,
           totalBattles: profile.total_habits || 0,
           winRate: profile.completion_rate || 0,
           badges: [],
         });
+
+        // Load clan information
+        const { data: clanMember } = await supabase
+          .from('clan_members')
+          .select(`
+            role,
+            xp_contributed,
+            joined_at,
+            clans (
+              id,
+              name,
+              level,
+              total_xp
+            )
+          `)
+          .eq('user_id', profile.id)
+          .single();
+
+        if (clanMember?.clans) {
+          setClanInfo({
+            clan_name: clanMember.clans.name,
+            role: clanMember.role,
+            xp_contributed: clanMember.xp_contributed,
+            joined_at: clanMember.joined_at,
+            clan_level: clanMember.clans.level,
+            clan_total_xp: clanMember.clans.total_xp
+          });
+        }
+
+        // Load recent habit completions for activity
+        const { data: recentLogs } = await supabase
+          .from('habit_logs')
+          .select(`
+            completed_at,
+            xp_earned,
+            habits (
+              title
+            )
+          `)
+          .eq('user_id', profile.id)
+          .order('completed_at', { ascending: false })
+          .limit(3);
+
+        if (recentLogs) {
+          setRecentActivity(recentLogs);
+        }
       }
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -103,7 +151,9 @@ export default function ProfilePage() {
                 {/* Clan Badge Section */}
                 <div className="flex justify-center">
                   <div className="px-4 py-2 bg-purple-600/20 border-2 border-purple-500/50 rounded-lg">
-                    <span className="text-sm font-bold text-purple-400">🏰 CRIMSON NEXUS</span>
+                    <span className="text-sm font-bold text-purple-400">
+                      {clanInfo ? `🏰 ${clanInfo.clan_name.toUpperCase()}` : '🏠 NO CLAN'}
+                    </span>
                   </div>
                 </div>
 
@@ -114,12 +164,12 @@ export default function ProfilePage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="px-4 py-3 bg-purple-600/20 border-2 border-purple-500/30 rounded-lg text-center">
-                      <div className="text-2xl mb-1">⭐</div>
-                      <div className="text-xs font-bold text-purple-400">ELITE</div>
+                      <div className="text-2xl mb-1">{stats.level >= 10 ? '⭐' : '🔒'}</div>
+                      <div className="text-xs font-bold text-purple-400">VETERAN</div>
                     </div>
                     <div className="px-4 py-3 bg-purple-600/20 border-2 border-purple-500/30 rounded-lg text-center">
-                      <div className="text-2xl mb-1">🚀</div>
-                      <div className="text-xs font-bold text-purple-400">PIONEER</div>
+                      <div className="text-2xl mb-1">{stats.streak >= 7 ? '🔥' : '🔒'}</div>
+                      <div className="text-xs font-bold text-purple-400">STREAKER</div>
                     </div>
                   </div>
                 </div>
@@ -185,7 +235,7 @@ export default function ProfilePage() {
               </div>
             </motion.div>
 
-            {/* XP Details Section */}
+            {/* Recent Activity Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -193,21 +243,21 @@ export default function ProfilePage() {
               className="border-4 border-purple-500/50 rounded-lg bg-black/80 p-6 space-y-4"
             >
               <div className="text-xs font-mono text-purple-400 tracking-widest">
-                ▓▒░ EXPERIENCE LOG ░▒▓
+                ▓▒░ RECENT ACTIVITY ░▒▓
               </div>
               <div className="space-y-3">
-                <div className="flex justify-between items-center px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Daily Bonus</span>
-                  <span className="text-sm font-bold text-green-400">+ 500 XP</span>
-                </div>
-                <div className="flex justify-between items-center px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Weekly Challenge</span>
-                  <span className="text-sm font-bold text-green-400">+ 2,500 XP</span>
-                </div>
-                <div className="flex justify-between items-center px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Achievements</span>
-                  <span className="text-sm font-bold text-green-400">+ 1,200 XP</span>
-                </div>
+                {recentActivity.length > 0 ? (
+                  recentActivity.map((activity, index) => (
+                    <div key={index} className="flex justify-between items-center px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
+                      <span className="text-sm font-mono text-white">{activity.habits?.title || 'Habit Completed'}</span>
+                      <span className="text-sm font-bold text-green-400">+ {activity.xp_earned} XP</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-400 text-sm">
+                    No recent activity
+                  </div>
+                )}
               </div>
             </motion.div>
 
@@ -224,16 +274,50 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="px-4 py-3 bg-purple-600/20 border border-purple-500/30 rounded text-center">
                   <div className="text-2xl font-bold text-orange-400">🔥</div>
-                  <div className="text-xs font-mono text-gray-400 mt-1">{stats.streak} Day</div>
+                  <div className="text-xs font-mono text-gray-400 mt-1">{stats.streak} Day{stats.streak !== 1 ? 's' : ''}</div>
                   <div className="text-xs font-mono text-white font-bold">STREAK</div>
                 </div>
                 <div className="px-4 py-3 bg-purple-600/20 border border-purple-500/30 rounded text-center">
                   <div className="text-2xl font-bold text-yellow-400">⭐</div>
-                  <div className="text-xs font-mono text-gray-400 mt-1">Last Active</div>
-                  <div className="text-xs font-mono text-white font-bold">Today</div>
+                  <div className="text-xs font-mono text-gray-400 mt-1">Level</div>
+                  <div className="text-xs font-mono text-white font-bold">{stats.level}</div>
                 </div>
               </div>
             </motion.div>
+
+            {/* Clan Information Section */}
+            {clanInfo && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="border-4 border-purple-500/50 rounded-lg bg-black/80 p-6 space-y-4"
+              >
+                <div className="text-xs font-mono text-purple-400 tracking-widest">
+                  ▓▒░ CLAN STATUS ░▒▓
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
+                    <span className="text-sm font-mono text-white">Clan Name</span>
+                    <span className="font-bold text-purple-400">{clanInfo.clan_name}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
+                    <span className="text-sm font-mono text-white">Your Role</span>
+                    <span className={`font-bold ${clanInfo.role === 'Leader' ? 'text-yellow-400' : clanInfo.role === 'Moderator' ? 'text-blue-400' : 'text-gray-400'}`}>
+                      {clanInfo.role}
+                    </span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
+                    <span className="text-sm font-mono text-white">XP Contributed</span>
+                    <span className="font-bold text-green-400">{clanInfo.xp_contributed}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
+                    <span className="text-sm font-mono text-white">Member Since</span>
+                    <span className="font-bold text-gray-400">{new Date(clanInfo.joined_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Statistics Section */}
             <motion.div

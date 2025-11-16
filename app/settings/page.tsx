@@ -3,9 +3,10 @@
 import { useUser } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, User, MapPin, Loader2, Save, Edit2 } from 'lucide-react';
+import { Upload, User, MapPin, Loader2, Save, Edit2, Users, Crown, LogOut, Settings as SettingsIcon, UserPlus } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
 interface UserProfile {
   id: string;
@@ -19,6 +20,24 @@ interface UserProfile {
   xp: number;
   level: number;
   extra_lives: number;
+}
+
+interface ClanMember {
+  id: string;
+  user_id: string;
+  clan_id: string;
+  role: 'Leader' | 'Moderator' | 'Member';
+  xp_contributed: number;
+  joined_at: string;
+  clans: {
+    id: string;
+    name: string;
+    description: string;
+    avatar_url: string;
+    total_xp: number;
+    level: number;
+    member_count: number;
+  };
 }
 
 export default function SettingsPage() {
@@ -36,6 +55,8 @@ export default function SettingsPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
+  const [clanMembership, setClanMembership] = useState<ClanMember | null>(null);
+  const [leavingClan, setLeavingClan] = useState(false);
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -63,11 +84,66 @@ export default function SettingsPage() {
           bio: data.bio || '',
         });
         setAvatarPreview(data.avatar_url);
+        
+        // Load clan membership
+        await loadClanMembership(data.id);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadClanMembership = async (profileId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('clan_members')
+        .select(`
+          *,
+          clans (
+            id,
+            name,
+            description,
+            avatar_url,
+            total_xp,
+            level,
+            member_count
+          )
+        `)
+        .eq('user_id', profileId)
+        .single();
+
+      if (!error && data) {
+        setClanMembership(data);
+      } else {
+        setClanMembership(null);
+      }
+    } catch (error) {
+      console.error('Error loading clan membership:', error);
+      setClanMembership(null);
+    }
+  };
+
+  const handleLeaveClan = async () => {
+    if (!clanMembership || !profile) return;
+
+    setLeavingClan(true);
+    try {
+      const { error } = await supabase.rpc('leave_clan', {
+        p_user_id: profile.id
+      });
+
+      if (error) throw error;
+
+      setClanMembership(null);
+      setSuccessMessage('Successfully left the clan!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error: any) {
+      console.error('Error leaving clan:', error);
+      setErrors({ ...errors, clan: error.message || 'Failed to leave clan' });
+    } finally {
+      setLeavingClan(false);
     }
   };
 
@@ -235,6 +311,93 @@ export default function SettingsPage() {
                     <p className="text-2xl font-bold text-green-400">{profile.extra_lives}</p>
                   </div>
                 </div>
+                
+                {/* Clan Information */}
+                <div className="mt-6 pt-6 border-t border-purple-500/30">
+                  <h3 className="text-lg font-bold mb-3 flex items-center space-x-2">
+                    <Users className="text-purple-400" size={20} />
+                    <span>Clan Information</span>
+                  </h3>
+                  
+                  {clanMembership ? (
+                    <div className="space-y-3">
+                      <div className="p-4 bg-purple-600/10 rounded-lg border border-purple-500/20">
+                        <div className="flex items-center space-x-3 mb-3">
+                          {clanMembership.clans.avatar_url ? (
+                            <img 
+                              src={clanMembership.clans.avatar_url} 
+                              alt={clanMembership.clans.name}
+                              className="w-12 h-12 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center">
+                              <Users className="text-purple-400" size={24} />
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-bold text-lg">{clanMembership.clans.name}</h4>
+                            <div className="flex items-center space-x-2">
+                              {clanMembership.role === 'Leader' && (
+                                <Crown className="text-yellow-400" size={16} />
+                              )}
+                              <span className="text-sm text-gray-400">
+                                {clanMembership.role} • Level {clanMembership.clans.level}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-gray-400">XP Contributed</p>
+                            <p className="font-bold text-purple-400">{clanMembership.xp_contributed.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Members</p>
+                            <p className="font-bold text-blue-400">{clanMembership.clans.member_count}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2 mt-4">
+                          <Link 
+                            href="/clan"
+                            className="flex-1 py-2 px-3 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition-colors text-center text-sm font-medium flex items-center justify-center space-x-1"
+                          >
+                            <SettingsIcon size={14} />
+                            <span>Manage</span>
+                          </Link>
+                          
+                          {clanMembership.role !== 'Leader' && (
+                            <button
+                              onClick={handleLeaveClan}
+                              disabled={leavingClan}
+                              className="flex-1 py-2 px-3 bg-red-600/20 hover:bg-red-600/30 disabled:bg-red-600/10 disabled:cursor-not-allowed rounded-lg transition-colors text-center text-sm font-medium flex items-center justify-center space-x-1"
+                            >
+                              {leavingClan ? (
+                                <Loader2 className="animate-spin" size={14} />
+                              ) : (
+                                <LogOut size={14} />
+                              )}
+                              <span>{leavingClan ? 'Leaving...' : 'Leave'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-600/10 rounded-lg border border-gray-500/20 text-center">
+                      <Users className="text-gray-400 mx-auto mb-2" size={32} />
+                      <p className="text-gray-400 mb-3">You're not in a clan yet</p>
+                      <Link 
+                        href="/clans"
+                        className="inline-flex items-center space-x-2 py-2 px-4 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-sm font-medium"
+                      >
+                        <UserPlus size={16} />
+                        <span>Find a Clan</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
 
@@ -358,6 +521,13 @@ export default function SettingsPage() {
                 {errors.submit && (
                   <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                     <p className="text-red-400 text-sm">{errors.submit}</p>
+                  </div>
+                )}
+
+                {/* Clan Error Message */}
+                {errors.clan && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-red-400 text-sm">{errors.clan}</p>
                   </div>
                 )}
 
