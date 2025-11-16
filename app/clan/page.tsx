@@ -7,6 +7,94 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClanChat from '@/components/ClanChat';
 import { supabase } from '@/lib/supabase';
+
+// Clan level thresholds (matching backend)
+const CLAN_LEVEL_XP_THRESHOLDS: Record<number, number> = {
+  1: 0,
+  2: 500,
+  3: 1200,
+  4: 2000,
+  5: 3000,
+  6: 4500,
+  7: 6500,
+  8: 9000,
+  9: 12000,
+  10: 15500,
+  11: 19500,
+  12: 24000,
+  13: 29000,
+  14: 35000,
+  15: 42000,
+  16: 50000,
+  17: 59500,
+  18: 70500,
+  19: 83000,
+  20: 97000,
+  21: 125000
+};
+
+function calculateClanLevelFromXP(xp: number): number {
+  for (let level = 20; level >= 1; level--) {
+    if (xp >= CLAN_LEVEL_XP_THRESHOLDS[level]) {
+      return level;
+    }
+  }
+  return 1;
+}
+
+function getClanXPProgress(xp: number): { currentLevel: number; nextLevel: number; currentXP: number; nextLevelXP: number; progress: number } {
+  const currentLevel = calculateClanLevelFromXP(xp);
+  const nextLevel = Math.min(currentLevel + 1, 20);
+  
+  const currentLevelXP = CLAN_LEVEL_XP_THRESHOLDS[currentLevel];
+  const nextLevelXP = CLAN_LEVEL_XP_THRESHOLDS[nextLevel];
+  
+  const progressXP = xp - currentLevelXP;
+  const requiredXP = nextLevelXP - currentLevelXP;
+  const progress = requiredXP > 0 ? (progressXP / requiredXP) * 100 : 100;
+  
+  return {
+    currentLevel,
+    nextLevel,
+    currentXP: progressXP,
+    nextLevelXP: requiredXP,
+    progress: Math.min(progress, 100)
+  };
+}
+
+// Clan level progress component
+function ClanLevelProgress({ clanXP, clanLevel }: { clanXP: number; clanLevel: number }) {
+  const progress = getClanXPProgress(clanXP);
+  const isMaxLevel = clanLevel >= 20;
+  
+  return (
+    <div>
+      <div className="flex justify-between text-sm text-gray-400 mb-1">
+        <span>
+          {isMaxLevel ? 'Max Level Reached!' : `Progress to Level ${progress.nextLevel}`}
+        </span>
+        <span>
+          {isMaxLevel ? `${clanXP.toLocaleString()} XP (Max)` : `${progress.currentXP.toLocaleString()}/${progress.nextLevelXP.toLocaleString()} XP`}
+        </span>
+      </div>
+      <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+        <div 
+          className={`h-full transition-all duration-500 ${
+            isMaxLevel 
+              ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
+              : 'bg-gradient-to-r from-purple-500 to-blue-500'
+          }`}
+          style={{ width: `${isMaxLevel ? 100 : progress.progress}%` }}
+        />
+      </div>
+      {!isMaxLevel && (
+        <div className="text-xs text-gray-500 mt-1">
+          {(progress.nextLevelXP - progress.currentXP).toLocaleString()} XP needed for next level
+        </div>
+      )}
+    </div>
+  );
+}
 import { 
   Users, 
   MessageSquare, 
@@ -298,7 +386,7 @@ export default function ClanPage() {
             <div className="bg-black/60 backdrop-blur-sm border-t border-purple-500/30 p-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">Level {clan.level}</div>
+                  <div className="text-2xl font-bold text-purple-400">Level {calculateClanLevelFromXP(clan.total_xp)}</div>
                   <div className="text-sm text-gray-400">Clan Level</div>
                 </div>
                 <div className="text-center">
@@ -316,16 +404,7 @@ export default function ClanPage() {
               </div>
               {/* XP Progress Bar */}
               <div className="mt-4">
-                <div className="flex justify-between text-sm text-gray-400 mb-1">
-                  <span>Progress to Level {clan.level + 1}</span>
-                  <span>{clan.total_xp}/{(clan.level + 1) * 10000} XP</span>
-                </div>
-                <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-                    style={{ width: `${(clan.total_xp / ((clan.level + 1) * 10000)) * 100}%` }}
-                  />
-                </div>
+                <ClanLevelProgress clanXP={clan.total_xp} clanLevel={clan.level} />
               </div>
             </div>
           </motion.div>

@@ -17,6 +17,7 @@ export default function ProfilePage() {
     streak: 0,
     totalBattles: 0,
     winRate: 0,
+    extraLives: 0,
     badges: [] as any[],
   });
   const [clanInfo, setClanInfo] = useState<any>(null);
@@ -46,6 +47,7 @@ export default function ProfilePage() {
           streak: profile.current_streak || 0,
           totalBattles: profile.total_habits || 0,
           winRate: profile.completion_rate || 0,
+          extraLives: profile.extra_lives || 0,
           badges: [],
         });
 
@@ -181,7 +183,7 @@ export default function ProfilePage() {
 
                 {/* Stats Footer */}
                 <div className="pt-4 border-t-4 border-purple-500 space-y-4">
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                  <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono mb-2">
                     <div className="px-2 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
                       <div className="text-purple-400 font-bold text-lg">{stats.totalBattles}</div>
                       <div className="text-gray-400 text-xs">HABITS</div>
@@ -190,9 +192,15 @@ export default function ProfilePage() {
                       <div className="text-purple-400 font-bold text-lg">{Math.round(stats.winRate)}%</div>
                       <div className="text-gray-400 text-xs">WIN RATE</div>
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono">
                     <div className="px-2 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
                       <div className="text-purple-400 font-bold text-lg">{stats.level}</div>
                       <div className="text-gray-400 text-xs">LEVEL</div>
+                    </div>
+                    <div className="px-2 py-2 bg-green-600/20 border border-green-500/30 rounded">
+                      <div className="text-green-400 font-bold text-lg">{stats.extraLives}</div>
+                      <div className="text-gray-400 text-xs">EXTRA LIVES</div>
                     </div>
                   </div>
                   

@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from models.user import XP_CONFIG
+from models.user import XP_CONFIG, EXTRA_LIFE_STREAK_THRESHOLD, calculate_clan_level_from_xp, get_clan_xp_progress
 from services.leveling import level_from_xp, progress_from_xp, check_level_up
 from services.badge_service import BadgeService
 from services.database import Database
@@ -94,9 +94,36 @@ class XPService:
                 })
     
     async def _contribute_clan_xp(self, user_id: str, clan_id: str, xp_amount: int):
-        """Contribute XP to user's clan"""
+        """Contribute XP to user's clan and handle clan level ups"""
+        # Get current clan data
+        clan = await self.db.get_clan(clan_id)
+        old_clan_xp = clan.get('total_xp', 0)
+        old_clan_level = clan.get('level', 1)
+        
         # Update clan total XP
+        new_clan_xp = old_clan_xp + xp_amount
         await self.db.increment_clan_xp(clan_id, xp_amount)
+        
+        # Calculate new clan level
+        new_clan_level = calculate_clan_level_from_xp(new_clan_xp)
+        
+        # Update clan level if it changed
+        if new_clan_level > old_clan_level:
+            await self.db.update_clan(clan_id, {'level': new_clan_level})
+            
+            # Track clan level up in PostHog
+            if POSTHOG_ENABLED:
+                posthog.capture(
+                    f'clan_{clan_id}',
+                    'clan_level_up',
+                    {
+                        'clan_id': clan_id,
+                        'old_level': old_clan_level,
+                        'new_level': new_clan_level,
+                        'total_xp': new_clan_xp,
+                        'contributing_user': user_id
+                    }
+                )
         
         # Update user's contribution
         await self.db.increment_clan_member_contribution(clan_id, user_id, xp_amount)
@@ -132,9 +159,56 @@ class XPService:
             365: ('yearly', 1000)
         }
         
+        result = None
         if streak in bonuses:
             bonus_type, xp_amount = bonuses[streak]
             result = await self.award_xp(user_id, xp_amount, f'{bonus_type}_streak_bonus')
-            return result
         
-        return None
+        # Award extra life for 100-day streak milestone
+        if streak == EXTRA_LIFE_STREAK_THRESHOLD:
+            await self.award_extra_life(user_id, 'century_streak')
+            
+        return result
+    
+    async def award_extra_life(self, user_id: str, reason: str) -> dict:
+        """Award an extra life to the user"""
+        # Get current user data
+        user = await self.db.get_user(user_id)
+        current_lives = user.get('extra_lives', 0)
+        new_lives = current_lives + 1
+        
+        # Update user's extra lives
+        await self.db.update_user(user_id, {'extra_lives': new_lives})
+        
+        # Track in PostHog
+        if POSTHOG_ENABLED:
+            posthog.capture(
+                user_id,
+                'extra_life_awarded',
+                {
+                    'reason': reason,
+                    'new_total': new_lives,
+                    'previous_total': current_lives
+                }
+            )
+        
+        return {
+            'extra_life_awarded': True,
+            'reason': reason,
+            'total_extra_lives': new_lives
+        }
+    
+    async def get_clan_progress(self, clan_id: str) -> dict:
+        """Get clan XP and level progress information"""
+        clan = await self.db.get_clan(clan_id)
+        total_xp = clan.get('total_xp', 0)
+        current_level = clan.get('level', 1)
+        
+        progress_info = get_clan_xp_progress(total_xp)
+        
+        return {
+            'clan_id': clan_id,
+            'total_xp': total_xp,
+            'current_level': current_level,
+            'progress_info': progress_info
+        }

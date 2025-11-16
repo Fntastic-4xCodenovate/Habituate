@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, CheckCircle2, Target, TrendingUp, Flame } from 'lucide-react';
+import { Plus, CheckCircle2, Target, TrendingUp, Flame, Heart } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { supabase, getHabits, logHabitCompletion, createHabit, type Habit } from '@/lib/supabase';
 
@@ -11,6 +11,7 @@ export default function DashboardPage() {
   const { user, isLoaded } = useUser();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [extraLives, setExtraLives] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showNewHabitForm, setShowNewHabitForm] = useState(false);
 
@@ -27,7 +28,7 @@ export default function DashboardPage() {
       // Get user profile from Supabase first
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('id, profile_completed')
+        .select('id, profile_completed, extra_lives')
         .eq('clerk_user_id', user.id)
         .single();
       
@@ -38,6 +39,7 @@ export default function DashboardPage() {
       }
       
       setUserProfile(profile);
+      setExtraLives(profile?.extra_lives || 0);
       
       // Load ONLY user's own habits from Supabase
       const { data, error } = await supabase
@@ -192,11 +194,12 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[
               { icon: Target, label: 'Total Habits', value: totalHabits, color: 'purple' },
               { icon: Flame, label: 'Current Streak', value: totalStreak, color: 'orange' },
               { icon: TrendingUp, label: 'Best Streak', value: bestStreak, color: 'green' },
+              { icon: Heart, label: 'Extra Lives', value: extraLives, color: 'red' },
             ].map((stat, index) => (
               <motion.div
                 key={index}
@@ -210,7 +213,16 @@ export default function DashboardPage() {
                     <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
                     <p className="text-3xl font-bold">{stat.value}</p>
                   </div>
-                  <stat.icon className="text-purple-400" size={32} />
+                  <stat.icon 
+                    className={`${
+                      stat.color === 'purple' ? 'text-purple-400' :
+                      stat.color === 'orange' ? 'text-orange-400' :
+                      stat.color === 'green' ? 'text-green-400' :
+                      stat.color === 'red' ? 'text-red-400' :
+                      'text-purple-400'
+                    }`} 
+                    size={32} 
+                  />
                 </div>
               </motion.div>
             ))}

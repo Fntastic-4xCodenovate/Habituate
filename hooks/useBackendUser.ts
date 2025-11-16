@@ -52,6 +52,23 @@ export function useBackendUser() {
     } catch (err: any) {
       console.error('Error initializing backend user:', err);
       setError(err.message || 'Failed to connect to backend');
+      
+      // Use mock data when backend is unavailable
+      if (clerkUser) {
+        const mockUser: User = {
+          id: 'mock-user-id',
+          clerk_user_id: clerkUser.id,
+          username: clerkUser.username || clerkUser.firstName || 'User',
+          email: clerkUser.emailAddresses[0]?.emailAddress || 'user@example.com',
+          xp: 2500,
+          level: 5,
+          clan_id: 'mock-clan-id',
+          extra_lives: 2, // Include extra lives in mock data
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setBackendUser(mockUser as User);
+      }
     } finally {
       setLoading(false);
     }
