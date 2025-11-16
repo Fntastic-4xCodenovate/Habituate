@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClanChat from '@/components/ClanChat';
 import { supabase } from '@/lib/supabase';
@@ -235,9 +236,17 @@ export default function ClanPage() {
       <>
         <Navbar />
         <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">You're not in a clan</h1>
-            <p className="text-gray-400">Join a clan to start building community!</p>
+          <div className="text-center p-8 bg-gray-900/50 border border-purple-500/30 rounded-lg max-w-md">
+            <Users className="text-gray-400 mx-auto mb-4" size={64} />
+            <h1 className="text-2xl font-bold mb-2">You're not in a clan yet</h1>
+            <p className="text-gray-400 mb-6">Join a clan to start building community and earning rewards together!</p>
+            <Link 
+              href="/clans"
+              className="inline-flex items-center space-x-2 py-3 px-6 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors font-semibold"
+            >
+              <UserPlus size={20} />
+              <span>Find a Clan</span>
+            </Link>
           </div>
         </div>
       </>

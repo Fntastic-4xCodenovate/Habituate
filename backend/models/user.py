@@ -51,12 +51,40 @@ XP_CONFIG = {
     "HELP_CLAN_MEMBER": 5,
 }
 
-# Level progression (exponential)
+# Level progression with custom XP requirements
+LEVEL_XP_THRESHOLDS = {
+    1: 0,
+    2: 200,
+    3: 400,
+    4: 800,
+    5: 1200,
+    6: 1800,
+    7: 2600,
+    8: 3600,
+    9: 4800,
+    10: 6200,
+    11: 8000,
+    12: 10000,
+    13: 12500,
+    14: 15000,
+    15: 18000,
+    16: 22000,
+    17: 27000,
+    18: 33000,
+    19: 40000,
+    20: 50000,
+}
+
 def calculate_xp_for_level(level: int) -> int:
     """Calculate XP required to reach a level"""
-    base = 100
-    multiplier = 1.5
-    return int(base * (multiplier ** (level - 1)))
+    if level in LEVEL_XP_THRESHOLDS:
+        return LEVEL_XP_THRESHOLDS[level]
+    # For levels beyond 20, continue scaling pattern
+    if level > 20:
+        # Extrapolate based on the last known pattern
+        diff = LEVEL_XP_THRESHOLDS[20] - LEVEL_XP_THRESHOLDS[19]
+        return LEVEL_XP_THRESHOLDS[20] + (diff * (level - 20))
+    return 0
 
 # Extra life system
 EXTRA_LIFE_STREAK_THRESHOLD = 100
@@ -67,44 +95,32 @@ def calculate_level_from_xp(xp: int) -> int:
         return 1
     
     level = 1
-    total_required = 0
-    
-    while True:
-        # XP required for current level
-        level_xp = calculate_xp_for_level(level)
-        
-        # If current XP is less than what's needed for next level
-        if xp < total_required + level_xp:
-            return level
-        
-        # Add this level's requirement to total
-        total_required += level_xp
-        level += 1
-        
-        # Safety check to prevent infinite loop
-        if level > 200:
-            return 200
+    for lvl in range(20, 0, -1):
+        if xp >= LEVEL_XP_THRESHOLDS[lvl]:
+            level = lvl
+            break
+    return level
 
-def get_xp_progress(xp: int) -> dict:
-    """Get detailed XP progress information"""
-    current_level = calculate_level_from_xp(xp)
+def get_xp_for_next_level(current_xp: int) -> dict:
+    """Get XP progress information for current level"""
+    current_level = calculate_level_from_xp(current_xp)
+    next_level = current_level + 1
     
-    # Calculate total XP needed for current level
-    total_for_current = 0
-    for i in range(1, current_level):
-        total_for_current += calculate_xp_for_level(i)
+    current_level_xp = LEVEL_XP_THRESHOLDS.get(current_level, 0)
+    next_level_xp = calculate_xp_for_level(next_level)
     
-    # XP needed for next level
-    xp_for_next_level = calculate_xp_for_level(current_level + 1)
+    xp_into_level = current_xp - current_level_xp
+    xp_needed = next_level_xp - current_xp
+    xp_for_level = next_level_xp - current_level_xp
     
-    # Progress within current level
-    xp_in_current_level = xp - total_for_current
+    progress_percentage = (xp_into_level / xp_for_level * 100) if xp_for_level > 0 else 0
     
     return {
         'current_level': current_level,
-        'total_xp': xp,
-        'xp_in_current_level': xp_in_current_level,
-        'xp_needed_for_next': xp_for_next_level,
-        'xp_remaining': xp_for_next_level - xp_in_current_level,
-        'progress_percentage': (xp_in_current_level / xp_for_next_level) * 100 if xp_for_next_level > 0 else 100
+        'next_level': next_level,
+        'current_xp': current_xp,
+        'xp_into_level': xp_into_level,
+        'xp_needed_for_next': xp_needed,
+        'xp_required_for_level': xp_for_level,
+        'progress_percentage': round(progress_percentage, 2)
     }
