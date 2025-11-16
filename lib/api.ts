@@ -13,7 +13,6 @@ export interface User {
   email: string;
   xp: number;
   level: number;
-  extra_lives: number;
   clan_id?: string;
   created_at: string;
   updated_at: string;
@@ -29,8 +28,6 @@ export interface HabitWithBackend {
   streak: number;
   best_streak: number;
   last_completed_date?: string;
-  used_extra_life: boolean;
-  extra_life_date?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -146,16 +143,6 @@ export const habitsAPI = {
     }>(`/habits/${habitId}/complete`, {
       method: 'POST',
       body: JSON.stringify({ user_id: userId }),
-    });
-  },
-
-  useExtraLife: async (habitId: string, userId: string, missedDate: string) => {
-    return fetchAPI<{
-      habit: HabitWithBackend;
-      extra_lives_remaining: number;
-    }>(`/habits/${habitId}/extra-life`, {
-      method: 'POST',
-      body: JSON.stringify({ user_id: userId, missed_date: missedDate }),
     });
   },
 

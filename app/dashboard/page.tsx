@@ -87,8 +87,12 @@ export default function DashboardPage() {
         return;
       }
       
+      // Calculate new streak
+      const newStreak = habit.streak + 1;
+      const newBestStreak = Math.max(newStreak, habit.best_streak);
+      
       // Mark as complete in Supabase
-      const { error } = await supabase
+      const { error: logError } = await supabase
         .from('habit_logs')
         .insert({
           habit_id: habitId,
@@ -97,32 +101,27 @@ export default function DashboardPage() {
           xp_earned: 25,
         });
       
-      if (error) throw error;
+      if (logError) throw logError;
       
-      // Update streak in habits table and locally
-      if (habit) {
-        const newStreak = habit.streak + 1;
-        const newBestStreak = Math.max(newStreak, habit.best_streak);
-        
-        const { error: updateError } = await supabase
-          .from('habits')
-          .update({
-            streak: newStreak,
-            best_streak: newBestStreak,
-            last_completed_date: new Date().toISOString().split('T')[0],
-          })
-          .eq('id', habitId);
-        
-        if (!updateError) {
-          setHabits(habits.map(h => 
-            h.id === habitId 
-              ? { ...h, streak: newStreak, best_streak: newBestStreak }
-              : h
-          ));
-        }
-      }
+      // Update habit streak in Supabase
+      const { error: habitError } = await supabase
+        .from('habits')
+        .update({
+          streak: newStreak,
+          best_streak: newBestStreak,
+          last_completed_date: today,
+        })
+        .eq('id', habitId);
+      
+      if (habitError) throw habitError;
+      
+      // Reload habits to show updated state
+      await loadHabits();
+      
+      console.log(`✅ Habit completed! Streak: ${newStreak}, Best: ${newBestStreak}`);
     } catch (error) {
       console.error('Error completing habit:', error);
+      alert('Failed to complete habit. Please try again.');
     }
   };
 
@@ -204,7 +203,7 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="p-6 rounded-lg border border-purple-500/30 bg-black/40 backdrop-blur-sm neon-border"
+                className="p-6 rounded-lg border bg-black/40 backdrop-blur-sm neon-border border-purple-500/30"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -294,54 +293,52 @@ export default function DashboardPage() {
                 <p className="text-lg">No habits yet. Create your first habit to get started!</p>
               </div>
             ) : (
-              habits.map((habit, index) => (
-                <motion.div
-                  key={habit.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="p-6 rounded-lg border border-purple-500/30 bg-black/40 backdrop-blur-sm hover:border-purple-500/60 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-1">{habit.title}</h3>
-                      <p className="text-gray-400 text-sm mb-2">{habit.description}</p>
-                      <div className="flex items-center space-x-4 text-sm">
-                        <span className="flex items-center space-x-1">
-                          <Flame size={16} className="text-orange-400" />
-                          <span>{habit.streak} day streak</span>
-                        </span>
-                        <span className="text-gray-500">Best: {habit.best_streak}</span>
-                        <span className="px-2 py-1 bg-purple-600/20 rounded text-purple-400 text-xs">
-                          {habit.frequency}
-                        </span>
+              habits.map((habit, index) => {
+                const today = new Date().toISOString().split('T')[0];
+                const isCompletedToday = habit.last_completed_date === today;
+
+                return (
+                  <motion.div
+                    key={habit.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="p-6 rounded-lg border border-purple-500/30 bg-black/40 backdrop-blur-sm hover:border-purple-500/60 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold mb-1">{habit.title}</h3>
+                        <p className="text-gray-400 text-sm mb-2">{habit.description}</p>
+                        <div className="flex items-center space-x-4 text-sm">
+                          <span className="flex items-center space-x-1">
+                            <Flame size={16} className="text-orange-400" />
+                            <span>{habit.streak} day streak</span>
+                          </span>
+                          <span className="text-gray-500">Best: {habit.best_streak}</span>
+                          <span className="px-2 py-1 bg-purple-600/20 rounded text-purple-400 text-xs">
+                            {habit.frequency}
+                          </span>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => handleCompleteHabit(habit.id)}
+                        disabled={isCompletedToday}
+                        className={`p-3 rounded-lg transition-colors group ${
+                          isCompletedToday 
+                            ? 'bg-green-600/50 cursor-not-allowed'
+                            : 'bg-purple-600/20 hover:bg-purple-600'
+                        }`}
+                      >
+                        <CheckCircle2 className={`transition-colors ${
+                          isCompletedToday 
+                            ? 'text-green-300' 
+                            : 'text-purple-400 group-hover:text-white'
+                        }`} size={24} />
+                      </button>
                     </div>
-                    {(() => {
-                      const today = new Date().toISOString().split('T')[0];
-                      const isCompletedToday = habit.last_completed_date === today;
-                      
-                      return (
-                        <button
-                          onClick={() => handleCompleteHabit(habit.id)}
-                          disabled={isCompletedToday}
-                          className={`p-3 rounded-lg transition-colors group ${
-                            isCompletedToday 
-                              ? 'bg-green-600/50 cursor-not-allowed'
-                              : 'bg-purple-600/20 hover:bg-purple-600'
-                          }`}
-                        >
-                          <CheckCircle2 className={`transition-colors ${
-                            isCompletedToday 
-                              ? 'text-green-300' 
-                              : 'text-purple-400 group-hover:text-white'
-                          }`} size={24} />
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </motion.div>
-              ))
+                  </motion.div>
+                );
+              })
             )}
           </div>
         </div>

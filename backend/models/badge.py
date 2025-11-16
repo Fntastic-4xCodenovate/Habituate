@@ -49,7 +49,7 @@ BADGE_DEFINITIONS = [
     {"name": "Monthly Master", "description": "Maintain a 30-day streak", "icon": "💪", 
      "badge_type": "streak", "rarity": "rare", "requirement": 30, "xp_reward": 100},
     
-    {"name": "Century Club", "description": "Reach 100-day streak - Extra life unlocked!", "icon": "💎", 
+    {"name": "Century Club", "description": "Reach 100-day streak", "icon": "💎", 
      "badge_type": "streak", "rarity": "epic", "requirement": 100, "xp_reward": 500},
     
     {"name": "Legendary Streak", "description": "Maintain a 365-day streak", "icon": "👑", 
@@ -86,9 +86,6 @@ BADGE_DEFINITIONS = [
      "badge_type": "clan", "rarity": "legendary", "requirement": 5000, "xp_reward": 500},
     
     # Special Badges
-    {"name": "Phoenix", "description": "Use an extra life to restore a streak", "icon": "🔄", 
-     "badge_type": "special", "rarity": "rare", "requirement": 1, "xp_reward": 75},
-    
     {"name": "Perfectionist", "description": "Complete all habits for 30 days", "icon": "💯", 
      "badge_type": "special", "rarity": "epic", "requirement": 30, "xp_reward": 300},
 ]

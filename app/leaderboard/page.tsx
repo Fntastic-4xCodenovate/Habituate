@@ -6,7 +6,7 @@ import { Trophy, Medal, Award, Globe, MapPin, Users } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { getLeaderboard, type UserProfile } from '@/lib/supabase';
 
-type LeaderboardCategory = 'global' | 'region' | 'city' | 'clan';
+type LeaderboardCategory = 'global'  |  'clan';
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<UserProfile[]>([]);
@@ -32,8 +32,6 @@ export default function LeaderboardPage() {
 
   const categories = [
     { id: 'global' as const, label: 'Global', icon: Globe },
-    { id: 'region' as const, label: 'Region', icon: MapPin },
-    { id: 'city' as const, label: 'City', icon: MapPin },
     { id: 'clan' as const, label: 'Clan', icon: Users },
   ];
 

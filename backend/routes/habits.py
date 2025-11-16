@@ -40,12 +40,6 @@ async def complete_habit(habit_id: str, user_id: str, notes: str = None):
     result = await streak_service.complete_habit(user_id, habit_id, notes)
     return result
 
-@router.post("/extra-life/use")
-async def use_extra_life(user_id: str, habit_id: str, date_to_restore: date):
-    """Use an extra life to restore a broken streak"""
-    result = await streak_service.use_extra_life(user_id, habit_id, date_to_restore)
-    return result
-
 @router.get("/missed-days/{user_id}")
 async def check_missed_days(user_id: str):
     """Check for missed habit completions"""
