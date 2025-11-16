@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 import socketio
 
-from routes import auth, habits, profile, leaderboard, clans, badges, quests, discover
+from routes import auth, habits, profile, leaderboard, clans, badges, quests, discover, xp
 from config import settings
 
 load_dotenv()
@@ -52,6 +52,7 @@ app.include_router(clans.router, prefix="/api/clans", tags=["Clans"])
 app.include_router(badges.router, prefix="/badges", tags=["Badges"])
 app.include_router(quests.router, prefix="/quests", tags=["Quests"])
 app.include_router(discover.router, prefix="/discover", tags=["Discover"])
+app.include_router(xp.router, prefix="/xp", tags=["XP System"])
 
 @app.get("/")
 async def root():
