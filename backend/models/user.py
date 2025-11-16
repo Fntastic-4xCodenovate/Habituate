@@ -91,6 +91,9 @@ EXTRA_LIFE_STREAK_THRESHOLD = 100
 
 def calculate_level_from_xp(xp: int) -> int:
     """Calculate level based on total XP"""
+    if xp < 0:
+        return 1
+    
     level = 1
     for lvl in range(20, 0, -1):
         if xp >= LEVEL_XP_THRESHOLDS[lvl]:
