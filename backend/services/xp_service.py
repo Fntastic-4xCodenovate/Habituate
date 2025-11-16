@@ -1,9 +1,20 @@
 from typing import Optional
 from datetime import datetime
-from models.user import calculate_level_from_xp, calculate_xp_for_level, XP_CONFIG, EXTRA_LIFE_STREAK_THRESHOLD, get_xp_for_next_level
+from models.user import XP_CONFIG, EXTRA_LIFE_STREAK_THRESHOLD
+from services.leveling import level_from_xp, progress_from_xp, check_level_up
 from services.badge_service import BadgeService
 from services.database import Database
-import posthog
+from config import settings
+try:
+    import posthog
+    if settings.POSTHOG_API_KEY:
+        posthog.api_key = settings.POSTHOG_API_KEY
+        posthog.host = settings.POSTHOG_HOST
+        POSTHOG_ENABLED = True
+    else:
+        POSTHOG_ENABLED = False
+except ImportError:
+    POSTHOG_ENABLED = False
 
 class XPService:
     def __init__(self):
@@ -19,7 +30,7 @@ class XPService:
         old_level = user['level']
         
         new_xp = old_xp + xp_amount
-        new_level = calculate_level_from_xp(new_xp)
+        new_level = level_from_xp(new_xp)
         
         # Update user XP and level
         await self.db.update_user(user_id, {
@@ -29,16 +40,17 @@ class XPService:
         })
         
         # Track in PostHog
-        posthog.capture(
-            user_id,
-            'xp_awarded',
-            {
-                'amount': xp_amount,
-                'reason': reason,
-                'new_xp': new_xp,
-                'new_level': new_level
-            }
-        )
+        if POSTHOG_ENABLED:
+            posthog.capture(
+                user_id,
+                'xp_awarded',
+                {
+                    'amount': xp_amount,
+                    'reason': reason,
+                    'new_xp': new_xp,
+                    'new_level': new_level
+                }
+            )
         
         # Check for level up
         level_ups = []
@@ -52,7 +64,7 @@ class XPService:
             await self._contribute_clan_xp(user_id, user['clan_id'], xp_amount)
         
         # Get level progress info
-        level_progress = get_xp_for_next_level(new_xp)
+        level_progress = progress_from_xp(new_xp)
         
         return {
             'xp_awarded': xp_amount,
@@ -66,7 +78,8 @@ class XPService:
     
     async def _handle_level_up(self, user_id: str, new_level: int):
         """Handle level up rewards and badges"""
-        posthog.capture(user_id, 'level_up', {'level': new_level})
+        if POSTHOG_ENABLED:
+            posthog.capture(user_id, 'level_up', {'level': new_level})
         
         # Check for level badges
         await self.badge_service.check_level_badges(user_id, new_level)
@@ -74,10 +87,11 @@ class XPService:
         # Award bonus XP for milestone levels
         if new_level % 5 == 0:
             bonus_xp = new_level * 10
-            posthog.capture(user_id, 'milestone_bonus', {
-                'level': new_level,
-                'bonus_xp': bonus_xp
-            })
+            if POSTHOG_ENABLED:
+                posthog.capture(user_id, 'milestone_bonus', {
+                    'level': new_level,
+                    'bonus_xp': bonus_xp
+                })
     
     async def _contribute_clan_xp(self, user_id: str, clan_id: str, xp_amount: int):
         """Contribute XP to user's clan"""
@@ -140,10 +154,11 @@ class XPService:
             'extra_lives': extra_lives + 1
         })
         
-        posthog.capture(user_id, 'extra_life_earned', {
-            'total_lives': extra_lives + 1,
-            'reason': '100_day_streak'
-        })
+        if POSTHOG_ENABLED:
+            posthog.capture(user_id, 'extra_life_earned', {
+                'total_lives': extra_lives + 1,
+                'reason': '100_day_streak'
+            })
         
         # Award special badge
         await self.badge_service.award_badge(user_id, 'Century Club')
