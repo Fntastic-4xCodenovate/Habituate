@@ -1,0 +1,6 @@
+<!-- Placeholder Avatar 7 - Yellow -->
+<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" fill="#eab308"/>
+  <circle cx="128" cy="100" r="50" fill="#fbbf24"/>
+  <ellipse cx="128" cy="200" rx="80" ry="60" fill="#fbbf24"/>
+</svg>

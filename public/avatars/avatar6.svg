@@ -1,0 +1,6 @@
+<!-- Placeholder Avatar 6 - Pink -->
+<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" fill="#ec4899"/>
+  <circle cx="128" cy="100" r="50" fill="#f472b6"/>
+  <ellipse cx="128" cy="200" rx="80" ry="60" fill="#f472b6"/>
+</svg>

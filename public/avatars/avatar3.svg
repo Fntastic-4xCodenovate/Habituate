@@ -1,0 +1,6 @@
+<!-- Placeholder Avatar 3 - Green -->
+<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" fill="#10b981"/>
+  <circle cx="128" cy="100" r="50" fill="#34d399"/>
+  <ellipse cx="128" cy="200" rx="80" ry="60" fill="#34d399"/>
+</svg>

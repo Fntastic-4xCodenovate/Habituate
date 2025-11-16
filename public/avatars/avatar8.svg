@@ -1,0 +1,6 @@
+<!-- Placeholder Avatar 8 - Teal -->
+<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" fill="#14b8a6"/>
+  <circle cx="128" cy="100" r="50" fill="#2dd4bf"/>
+  <ellipse cx="128" cy="200" rx="80" ry="60" fill="#2dd4bf"/>
+</svg>
