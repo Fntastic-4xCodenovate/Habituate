@@ -5,55 +5,45 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Trophy, Target, User, Award, Zap, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { type UserBadge } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+import { type UserBadge, profileAPI, badgesAPI } from '@/lib/api';
+import { useBackendUser } from '@/hooks/useBackendUser';
 
 export default function Navbar() {
   const { user, isSignedIn } = useUser();
+  const { backendUser } = useBackendUser();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [badges, setBadges] = useState<UserBadge[]>([]);
   const [userStats, setUserStats] = useState<{ xp: number; level: number } | null>(null);
   
   useEffect(() => {
-    if (user?.id) {
+    if (backendUser?.clerk_user_id) {
       loadUserData();
     }
-  }, [user?.id]);
+  }, [backendUser?.clerk_user_id]);
   
   const loadUserData = async () => {
     try {
-      if (!user?.id) return;
+      if (!backendUser?.clerk_user_id) return;
       
       // Check if user has completed onboarding
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('profile_completed, xp, level')
-        .eq('clerk_user_id', user.id)
-        .single();
-      
-      if (!profile || !profile.profile_completed) {
-        // User hasn't completed onboarding, don't load data
+      if (!backendUser.profile_completed) {
         return;
       }
       
-      // Load badges from Supabase
-      const { data: badgesData } = await supabase
-        .from('user_badges')
-        .select('*, badges(*)')
-        .eq('user_id', profile)
-        .order('earned_at', { ascending: false })
-        .limit(3);
+      // Fetch fresh data from backend API to get latest level and XP
+      const [profile, userBadges] = await Promise.all([
+        profileAPI.getProfile(backendUser.clerk_user_id),
+        badgesAPI.getUserBadges(backendUser.clerk_user_id).catch(() => [])
+      ]);
       
-      if (badgesData) {
-        setBadges(badgesData.map(ub => ({
-          badge_id: ub.badges.id,
-          badge: ub.badges,
-          earned_at: ub.earned_at,
-        })));
-      }
-      
+      // Set level and XP from backend (auto-synced with XP)
       setUserStats({ xp: profile.xp, level: profile.level });
+      
+      // Set badges (limit to top 3)
+      if (userBadges && userBadges.length > 0) {
+        setBadges(userBadges.slice(0, 3));
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
     }

@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { Upload, User, MapPin, Loader2, Save, Edit2, Users, Crown, LogOut, Settings as SettingsIcon, UserPlus } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/lib/supabase';
+import { profileAPI } from '@/lib/api';
+import { useBackendUser } from '@/hooks/useBackendUser';
 import Link from 'next/link';
 
 interface UserProfile {
@@ -42,6 +44,7 @@ interface ClanMember {
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
+  const { backendUser } = useBackendUser();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,8 +69,12 @@ export default function SettingsPage() {
 
   const loadProfile = async () => {
     try {
-      if (!user) return;
+      if (!user?.id) return;
 
+      // Fetch from backend API first (has auto-synced level)
+      const backendProfile = await profileAPI.getProfile(user.id);
+      
+      // Then get full data from Supabase for other fields
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -77,7 +84,14 @@ export default function SettingsPage() {
       if (error) throw error;
 
       if (data) {
-        setProfile(data);
+        // Merge backend data (with correct level) with Supabase data
+        const mergedProfile = {
+          ...data,
+          level: backendProfile.level, // Use backend level (auto-calculated)
+          xp: backendProfile.xp
+        };
+        
+        setProfile(mergedProfile);
         setFormData({
           displayName: data.display_name || '',
           region: data.region || '',
