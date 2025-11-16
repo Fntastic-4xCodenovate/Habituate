@@ -13,7 +13,6 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showNewHabitForm, setShowNewHabitForm] = useState(false);
-  const [completingHabitId, setCompletingHabitId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -61,22 +60,15 @@ export default function DashboardPage() {
     try {
       if (!user || !userProfile) return;
       
-      // Set loading state for this specific habit
-      setCompletingHabitId(habitId);
-      
       // Get the habit to check completion status
       const habit = habits.find(h => h.id === habitId);
-      if (!habit) {
-        setCompletingHabitId(null);
-        return;
-      }
+      if (!habit) return;
       
       // Check if habit was already completed today
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
       if (habit.last_completed_date === today) {
         alert('Habit already completed today! Come back tomorrow.');
-        setCompletingHabitId(null);
         return;
       }
       
@@ -92,7 +84,6 @@ export default function DashboardPage() {
       
       if (existingLog) {
         alert('Habit already completed today!');
-        setCompletingHabitId(null);
         return;
       }
       
@@ -123,11 +114,10 @@ export default function DashboardPage() {
           .eq('id', habitId);
       }
       
-      // Reload the page to show updated data
-      window.location.reload();
+      // Reload data from database to show updated state
+      await loadHabits();
     } catch (error) {
       console.error('Error completing habit:', error);
-      setCompletingHabitId(null);
     }
   };
 
@@ -325,25 +315,20 @@ export default function DashboardPage() {
                     {(() => {
                       const today = new Date().toISOString().split('T')[0];
                       const isCompletedToday = habit.last_completed_date === today;
-                      const isLoading = completingHabitId === habit.id;
                       
                       return (
                         <button
                           onClick={() => handleCompleteHabit(habit.id)}
-                          disabled={isCompletedToday || isLoading}
-                          className={`p-3 rounded-lg transition-all group ${
+                          disabled={isCompletedToday}
+                          className={`p-3 rounded-lg transition-colors group ${
                             isCompletedToday 
                               ? 'bg-green-600/50 cursor-not-allowed'
-                              : isLoading
-                              ? 'bg-blue-600 cursor-wait'
                               : 'bg-purple-600/20 hover:bg-purple-600'
                           }`}
                         >
-                          <CheckCircle2 className={`transition-all ${
+                          <CheckCircle2 className={`transition-colors ${
                             isCompletedToday 
                               ? 'text-green-300' 
-                              : isLoading
-                              ? 'text-white animate-pulse'
                               : 'text-purple-400 group-hover:text-white'
                           }`} size={24} />
                         </button>
