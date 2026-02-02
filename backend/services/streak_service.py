@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import datetime, date, timedelta
+from models.user import EXTRA_LIFE_STREAK_THRESHOLD
 from services.database import Database
 from services.xp_service import XPService
 import posthog
@@ -77,19 +78,28 @@ class StreakService:
         # Check for streak bonuses
         streak_bonus = await self.xp_service.award_streak_bonus(user_id, new_streak)
         
+        # Check for extra life award at 100-day streak
+        extra_life_awarded = False
+        if new_streak == EXTRA_LIFE_STREAK_THRESHOLD:
+            await self.xp_service.award_extra_life(user_id, f'habit_{habit["title"]}_century_streak')
+            extra_life_awarded = True
+        
         # Track in PostHog
         posthog.capture(user_id, 'habit_completed', {
             'habit_id': habit_id,
             'streak': new_streak,
             'xp_earned': xp_earned,
-            'difficulty': habit.get('difficulty')
+            'difficulty': habit.get('difficulty'),
+            'extra_life_awarded': extra_life_awarded
         })
         
         return {
             'habit_id': habit_id,
             'new_streak': new_streak,
             'best_streak': best_streak,
-            'xp_earned': xp_earned
+            'xp_earned': xp_earned,
+            'extra_life_awarded': extra_life_awarded,
+            'streak_bonus': streak_bonus
         }
     
     async def check_missed_days(self, user_id: str) -> list:

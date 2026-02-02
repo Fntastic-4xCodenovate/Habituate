@@ -446,7 +446,7 @@ export default function SettingsPage() {
                             <Loader2 size={16} className="animate-spin" />
                             <span>Uploading...</span>
                           </>
-                        ) : (
+                        ) : ( 
                           <>
                             <Upload size={16} />
                             <span>Change Avatar</span>

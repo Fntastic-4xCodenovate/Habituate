@@ -14,6 +14,7 @@ export interface User {
   xp: number;
   level: number;
   clan_id?: string;
+  extra_lives?: number;
   created_at: string;
   updated_at: string;
 }
