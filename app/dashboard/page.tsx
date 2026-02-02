@@ -103,6 +103,23 @@ export default function DashboardPage() {
       
       if (logError) throw logError;
       
+      // Update streak in habits table
+      if (habit) {
+        const newStreak = habit.streak + 1;
+        const newBestStreak = Math.max(newStreak, habit.best_streak);
+        
+        await supabase
+          .from('habits')
+          .update({
+            streak: newStreak,
+            best_streak: newBestStreak,
+            last_completed_date: new Date().toISOString().split('T')[0],
+          })
+          .eq('id', habitId);
+      }
+      
+      // Reload data from database to show updated state
+      await loadHabits();
       // Update habit streak in Supabase
       const { error: habitError } = await supabase
         .from('habits')

@@ -121,8 +121,11 @@ export default function ClanPage() {
         .select(`
           *,
           user_profiles (
+            id,
             clerk_user_id,
             username,
+            display_name,
+            avatar_url,
             level,
             xp,
             current_streak
@@ -132,6 +135,7 @@ export default function ClanPage() {
         .order('xp_contributed', { ascending: false });
       
       if (clanMembers) {
+        console.log('Loaded clan members:', clanMembers);
         setMembers(clanMembers);
       }
       
@@ -416,30 +420,53 @@ export default function ClanPage() {
                   animate={{ opacity: 1 }}
                   className="bg-gray-900/50 border border-purple-500/30 rounded-lg p-6"
                 >
-                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <Users className="text-blue-400" />
-                    Clan Members ({members.length}/{clan.max_members})
-                  </h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <Users className="text-blue-400" />
+                      Clan Members ({members.length}/{clan?.max_members || 0})
+                    </h2>
+                    <button
+                      onClick={loadClanData}
+                      className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 rounded-lg transition-colors text-sm"
+                    >
+                      Refresh
+                    </button>
+                  </div>
                   <div className="space-y-3">
-                    {members.map(member => (
+                    {members.length > 0 ? members.map(member => (
                       <div key={member.id} className="flex items-center gap-3 p-4 bg-black/40 rounded-lg hover:bg-black/60 transition-colors">
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                            {member.user_profiles?.username?.[0]?.toUpperCase() || 'U'}
-                          </div>
+                          {member.user_profiles?.avatar_url ? (
+                            <img 
+                              src={member.user_profiles.avatar_url} 
+                              alt={member.user_profiles.display_name || member.user_profiles.username}
+                              className="w-12 h-12 rounded-full object-cover border-2 border-purple-500/50"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-lg border-2 border-purple-500/50">
+                              {(member.user_profiles?.display_name || member.user_profiles?.username)?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-lg">{member.user_profiles?.username || 'Unknown User'}</span>
+                            <span className="font-semibold text-lg">
+                              {member.user_profiles?.display_name || member.user_profiles?.username || 'Unknown User'}
+                            </span>
                             {member.role === 'Leader' && <Crown className="text-yellow-400" size={16} />}
                             {member.role === 'Moderator' && <Shield className="text-blue-400" size={16} />}
                           </div>
-                          <div className="text-sm text-gray-400">{member.role} • Level {member.user_profiles?.level || 1}</div>
-                          <div className="text-xs text-gray-500">Contributed: {member.xp_contributed} XP</div>
+                          <div className="text-sm text-gray-400">
+                            {member.role} • Level {member.user_profiles?.level || 1}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Contributed: {member.xp_contributed?.toLocaleString() || 0} XP • 
+                            Joined: {new Date(member.joined_at).toLocaleDateString()}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="text-right">
-                            <div className="font-bold text-purple-400">{member.user_profiles?.xp || 0} XP</div>
+                            <div className="font-bold text-purple-400">{member.user_profiles?.xp?.toLocaleString() || 0} XP</div>
                             <div className="text-xs text-gray-500">Streak: {member.user_profiles?.current_streak || 0}</div>
                           </div>
                           {isLeader && member.role !== 'Leader' && (
@@ -471,7 +498,13 @@ export default function ClanPage() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <Users className="mx-auto mb-4" size={48} />
+                        <p className="text-lg mb-2">No members found</p>
+                        <p className="text-sm">There seems to be an issue loading clan members. Try refreshing the page.</p>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
