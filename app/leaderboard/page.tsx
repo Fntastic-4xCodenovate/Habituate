@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar';
 import { leaderboardAPI } from '@/lib/api';
 
 type LeaderboardCategory = 'users' | 'clans';
+type LeaderboardCategory = 'global'  |  'clan';
 
 export default function LeaderboardPage() {
   const [userLeaderboard, setUserLeaderboard] = useState<any[]>([]);
@@ -37,6 +38,8 @@ export default function LeaderboardPage() {
   const categories = [
     { id: 'users' as const, label: 'Top Users', icon: Trophy },
     { id: 'clans' as const, label: 'Top Clans', icon: Users },
+    { id: 'global' as const, label: 'Global', icon: Globe },
+    { id: 'clan' as const, label: 'Clan', icon: Users },
   ];
 
   const currentLeaderboard = category === 'users' ? userLeaderboard : clanLeaderboard;

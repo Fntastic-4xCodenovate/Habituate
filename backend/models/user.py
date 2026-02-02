@@ -13,7 +13,6 @@ class UserProfile(UserBase):
     total_points: int = 0
     level: int = 1
     xp: int = 0
-    extra_lives: int = 0
     clan_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -27,12 +26,6 @@ class UserStats(BaseModel):
     level: int
     badges_earned: int
     clan_xp_contribution: int = 0
-
-class ExtraLife(BaseModel):
-    user_id: str
-    available: int
-    used_on_date: Optional[datetime] = None
-    can_use: bool = True
 
 class LevelConfig(BaseModel):
     level: int
@@ -85,9 +78,6 @@ def calculate_xp_for_level(level: int) -> int:
         diff = LEVEL_XP_THRESHOLDS[20] - LEVEL_XP_THRESHOLDS[19]
         return LEVEL_XP_THRESHOLDS[20] + (diff * (level - 20))
     return 0
-
-# Extra life system
-EXTRA_LIFE_STREAK_THRESHOLD = 100
 
 def calculate_level_from_xp(xp: int) -> int:
     """Calculate level based on total XP"""

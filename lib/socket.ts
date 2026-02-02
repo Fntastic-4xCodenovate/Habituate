@@ -154,14 +154,6 @@ class SocketManager {
     this.socket?.on('streak_milestone', callback);
   }
 
-  // Extra Life Earned
-  onExtraLifeEarned(callback: (data: {
-    user_id: string;
-    total_extra_lives: number;
-  }) => void) {
-    this.socket?.on('extra_life_earned', callback);
-  }
-
   getSocket() {
     return this.socket;
   }

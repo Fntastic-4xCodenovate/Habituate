@@ -461,7 +461,7 @@ export default function ProfilePage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen w-full bg-gradient-to-b from-black via-purple-950/20 to-black pt-4">
+      <main className="min-h-screen w-full bg-gradient-to-b from-black via-purple-950/20 to-black pt-4 text-white">
         <div className="flex flex-col items-center w-full">
           
           {/* Fixed Profile Card at Top */}
@@ -552,7 +552,7 @@ export default function ProfilePage() {
                     onClick={() => signOut()}
                     className="w-full py-3 bg-red-600/20 border-2 border-red-500/50 rounded-lg text-red-400 font-mono text-sm font-bold tracking-widest hover:bg-red-600/30 hover:border-red-500/80 transition-all duration-300"
                   >
-                     LOGOUT SYSTEM 
+                     LOGOUT 
                   </button>
                 </div>
               </div>
@@ -674,36 +674,6 @@ export default function ProfilePage() {
                 </div>
               </motion.div>
             )}
-
-            {/* Statistics Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="border-4 border-purple-500/50 rounded-lg bg-black/80 p-6 space-y-4"
-            >
-              <div className="text-xs font-mono text-purple-400 tracking-widest">
-                ▓▒░ GAME STATISTICS ░▒▓
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Total Habits</span>
-                  <span className="font-bold text-purple-400">{stats.totalBattles}</span>
-                </div>
-                <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Completion Rate</span>
-                  <span className="font-bold text-purple-400">{Math.round(stats.winRate)}%</span>
-                </div>
-                <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Current Streak</span>
-                  <span className="font-bold text-purple-400">{stats.streak} days</span>
-                </div>
-                <div className="flex justify-between px-3 py-2 bg-purple-600/20 border border-purple-500/30 rounded">
-                  <span className="text-sm font-mono text-white">Total XP</span>
-                  <span className="font-bold text-purple-400">{stats.xp}</span>
-                </div>
-              </div>
-            </motion.div>
 
             {/* Bottom Status */}
             <div className="text-center py-4 text-xs font-mono text-purple-400">

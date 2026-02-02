@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from models.user import XP_CONFIG, EXTRA_LIFE_STREAK_THRESHOLD
+from models.user import XP_CONFIG
 from services.leveling import level_from_xp, progress_from_xp, check_level_up
 from services.badge_service import BadgeService
 from services.database import Database
@@ -128,37 +128,13 @@ class XPService:
         bonuses = {
             7: ('weekly', XP_CONFIG['WEEKLY_STREAK']),
             30: ('monthly', XP_CONFIG['MONTHLY_STREAK']),
-            100: ('century', 500),  # Special bonus + extra life
+            100: ('century', 500),
             365: ('yearly', 1000)
         }
         
         if streak in bonuses:
             bonus_type, xp_amount = bonuses[streak]
             result = await self.award_xp(user_id, xp_amount, f'{bonus_type}_streak_bonus')
-            
-            # Award extra life at 100 streak
-            if streak == EXTRA_LIFE_STREAK_THRESHOLD:
-                await self.award_extra_life(user_id)
-                result['extra_life_awarded'] = True
-            
             return result
         
         return None
-    
-    async def award_extra_life(self, user_id: str):
-        """Award an extra life to a user"""
-        user = await self.db.get_user(user_id)
-        extra_lives = user.get('extra_lives', 0)
-        
-        await self.db.update_user(user_id, {
-            'extra_lives': extra_lives + 1
-        })
-        
-        if POSTHOG_ENABLED:
-            posthog.capture(user_id, 'extra_life_earned', {
-                'total_lives': extra_lives + 1,
-                'reason': '100_day_streak'
-            })
-        
-        # Award special badge
-        await self.badge_service.award_badge(user_id, 'Century Club')
