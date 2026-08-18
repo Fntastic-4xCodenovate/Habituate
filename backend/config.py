@@ -3,10 +3,11 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Supabase
-    SUPABASE_URL: str
-    SUPABASE_KEY: str
-    SUPABASE_JWT_SECRET: str
-    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    MYSQL_HOST: str = "localhost"
+    MYSQL_PORT: int = 3306
+    MYSQL_USER: str = "root"
+    MYSQL_PASSWORD: str = ""
+    MYSQL_DATABASE: str = "habituate"
     
     # PostHog (Optional)
     POSTHOG_API_KEY: Optional[str] = None
